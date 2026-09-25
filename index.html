@@ -1,0 +1,163 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IanthoSim — Simulasi Persepsi Ianthinopsia</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>IanthoSim</h1>
+      <p class="tagline">Simulasi persepsi visual ianthinopsia — bagaimana dunia terlihat dalam dominasi violet</p>
+    </div>
+  </header>
+
+  <main>
+    <!-- Upload Zone -->
+    <section class="upload-section" id="uploadSection">
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+          </svg>
+        </div>
+        <p class="drop-title">Drag &amp; drop gambar di sini</p>
+        <p class="drop-sub">atau</p>
+        <label class="btn-upload" for="fileInput">Pilih File</label>
+        <input type="file" id="fileInput" accept="image/*" hidden />
+        <p class="drop-note">PNG, JPG, WEBP — diproses sepenuhnya di browser</p>
+      </div>
+    </section>
+
+    <!-- Split View -->
+    <section class="split-section hidden" id="splitSection">
+      <div class="split-label">
+        <span class="label-left">Original</span>
+        <span class="label-right">IanthoSim</span>
+      </div>
+      <div class="split-wrapper" id="splitWrapper">
+        <canvas id="canvasOriginal"></canvas>
+        <canvas id="canvasFiltered"></canvas>
+        <div class="split-divider" id="splitDivider">
+          <div class="divider-line"></div>
+          <div class="divider-handle">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Controls -->
+    <section class="controls-section hidden" id="controlsSection">
+      <div class="controls-grid">
+        <div class="control-group">
+          <label for="sliderStrength">
+            Filter Strength
+            <span class="value-badge" id="valStrength">0.85</span>
+          </label>
+          <input type="range" id="sliderStrength" min="0" max="1" step="0.01" value="0.85" />
+          <p class="ctrl-hint">Seberapa kuat hue ditarik ke violet</p>
+        </div>
+
+        <div class="control-group">
+          <label for="sliderSaturation">
+            Saturation
+            <span class="value-badge" id="valSaturation">1.30x</span>
+          </label>
+          <input type="range" id="sliderSaturation" min="0.5" max="2.0" step="0.05" value="1.3" />
+          <p class="ctrl-hint">Intensitas warna pada hasil filter</p>
+        </div>
+
+        <div class="control-group">
+          <label for="sliderBrightness">
+            Brightness
+            <span class="value-badge" id="valBrightness">1.00x</span>
+          </label>
+          <input type="range" id="sliderBrightness" min="0.5" max="1.5" step="0.05" value="1.0" />
+          <p class="ctrl-hint">Kecerahan gambar hasil</p>
+        </div>
+
+        <div class="control-group">
+          <label for="sliderHue">
+            Target Hue
+            <span class="value-badge" id="valHue">270 deg</span>
+          </label>
+          <input type="range" id="sliderHue" min="240" max="310" step="1" value="270" />
+          <div class="hue-strip"></div>
+          <p class="ctrl-hint">240 = biru-violet · 270 = violet murni · 310 = magenta</p>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button class="btn-primary" id="btnProcess">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+          </svg>
+          Proses Gambar
+        </button>
+        <button class="btn-secondary hidden" id="btnDownload">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+          </svg>
+          Download PNG
+        </button>
+      </div>
+
+      <div class="progress-wrap hidden" id="progressWrap">
+        <div class="progress-bar" id="progressBar"></div>
+        <span class="progress-label" id="progressLabel">Memproses...</span>
+      </div>
+    </section>
+
+    <!-- Dual Preview -->
+    <section class="preview-section hidden" id="previewSection">
+      <div class="preview-cards">
+        <div class="preview-card">
+          <h3>Original</h3>
+          <canvas id="previewOriginal"></canvas>
+        </div>
+        <div class="preview-card accent">
+          <h3>IanthoSim — Ianthinopsia</h3>
+          <canvas id="previewFiltered"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Info Box -->
+    <section class="info-section">
+      <div class="info-card">
+        <div class="info-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
+            <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </div>
+        <div class="info-text">
+          <h3>Tentang Ianthinopsia</h3>
+          <p>
+            Ianthinopsia adalah bentuk <strong>chromatopsia</strong> — kondisi di mana persepsi visual didominasi oleh satu warna, dalam hal ini violet/ungu.
+            Berbeda dengan dyschromatopsia yang memengaruhi kemampuan <em>membedakan</em> warna, ianthinopsia menyebabkan lingkungan tampak terselimuti dominasi warna violet.
+          </p>
+          <p>
+            Kondisi ini dapat terjadi akibat gangguan pada jalur visual, termasuk optic neuritis, neuropati optik, atau gangguan makula.
+          </p>
+          <p class="disclaimer">
+            IanthoSim adalah alat simulasi visual untuk empati dan edukasi. Ini BUKAN simulasi klinis presisi dan tidak mewakili pengalaman medis aktual setiap individu.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>IanthoSim · Simulasi Persepsi Ianthinopsia · Transformasi pixel dilakukan sepenuhnya di browser</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
