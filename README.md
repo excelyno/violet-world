@@ -1,4 +1,4 @@
-﻿# IanthoSim
+# IanthoSim
 
 **Simulasi Persepsi Visual Ianthinopsia**
 
@@ -212,35 +212,64 @@ Klik dua kali -> index.html
 
 ---
 
+## Mode Pemrosesan: Encode (Simulasi) vs Decode (Restorasi Invers)
+
+Aplikasi menyediakan dua mode operasi:
+
+1. **Mode Encode (Simulasi Ianthinopsia)**:
+   - **Input**: Gambar normal / berwarna.
+   - **Proses**: Mengompresi / menarik *Hue* warna asli ke arah target violet ($270^\circ$).
+   - **Output**: Gambar simulasi penglihatan ianthinopsia.
+
+2. **Mode Decode (Restorasi Warna / Invers)**:
+   - **Input**: Gambar hasil simulasi (yang didominasi warna violet).
+   - **Proses**: Menguraikan (*expands*) kembali *Hue* yang terkompresi dari violet menuju spektrum warna aslinya (*Inverse Hue Mapping*).
+   - **Output**: Gambar warna asli yang dipulihkan (*reconstructed original*).
+
+---
+
+### Rumus Mathematis Invers (Decode)
+
+Jika proses Encode menarik Hue dengan rumus:
+$$H_{\text{encoded}} = H + \text{blend} \times \text{angularDiff}(H, H_{\text{target}})$$
+
+Maka rekonstruksi warna asli pada proses Decode dihitung dengan persamaan pemulihan simetris:
+$$H_{\text{restored}} = H_{\text{target}} + \frac{\text{angularDiff}(H_{\text{target}}, H_{\text{encoded}})}{1 - \text{blend}}$$
+
+*Catatan: $\text{blend} = \text{strength} \times 0.75$.*
+
+---
+
+## Perbandingan Split-View Real
+
+Split-view menggunakan kombinasi dua layer kanvas dengan **Offscreen Canvas & Context Clipping**:
+- **Kanvas Kiri (Original / Input)**: Menampilkan gambar asli.
+- **Kanvas Kanan (Hasil Filter)**: Digambar melalui *offscreen canvas* menggunakan `ctx.clip()`, dipotong secara presisi di posisi garis perbandingan (*divider*).
+- Slider dapat digeser secara riil untuk membandingkan perbedaan *before-and-after* secara simultan.
+
+---
+
 ## Cara Menggunakan
 
-1. **Upload gambar** — drag & drop atau klik "Pilih File"
-2. Filter dijalankan otomatis dengan parameter default
-3. **Split-view slider** — drag garis tengah untuk bandingkan original vs simulasi
-4. **Sesuaikan slider** sesuai kebutuhan, klik **Proses Gambar**
-5. **Download PNG** untuk menyimpan hasil
-
-### Parameter Slider
-
-| Slider | Range | Default | Fungsi |
-|---|---|---|---|
-| Filter Strength | 0.0 – 1.0 | 0.85 | Kekuatan tarikan hue ke violet |
-| Saturation | 0.5x – 2.0x | 1.30x | Intensitas warna |
-| Brightness | 0.5x – 1.5x | 1.00x | Kecerahan gambar |
-| Target Hue | 240° – 310° | 270° | Titik target violet (270° = violet murni) |
+1. **Pilih Mode**:
+   - Klik **ENCODE** untuk mensimulasikan gambar normal menjadi violet.
+   - Klik **DECODE** untuk memulihkan gambar violet kembali ke warna asli.
+2. **Upload Gambar** — Drag & drop atau klik "Pilih File".
+3. **Split-View Slider** — Drag garis tengah untuk membandingkan *input vs output* secara langsung.
+4. **Alur Langsung (Shortcut)**: Setelah memproses gambar di Mode Encode, klik tombol **"🔄 Gunakan Hasil Ini untuk Dekode (Invers)"** untuk langsung menguji fungsi pemulihan warna.
+5. **Download PNG** untuk menyimpan hasil akhir.
 
 ---
 
 ## Teknologi
 
-- HTML5 Canvas API (ImageData, putImageData)
+- HTML5 Canvas API (`ImageData`, `drawImage`, `offscreen canvas`, `ctx.clip()`)
 - Vanilla JavaScript ES6+
 - CSS3 (dark theme, CSS custom properties)
-- Tidak ada library eksternal
-- Tidak ada backend
-- Tidak ada CSS filter (invert, hue-rotate, dll.)
-- Semua pemrosesan pixel dilakukan di browser
+- Tanpa library eksternal
+- Tanpa backend
+- Pemrosesan pixel dilakukan 100% lokal di browser
 
 ---
 
-*IanthoSim — dibuat untuk empati dan pemahaman, bukan diagnosis medis.*
+*IanthoSim — dibuat untuk empati, pemahaman visual, dan eksplorasi matematika warna.*

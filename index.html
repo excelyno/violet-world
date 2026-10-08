@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
@@ -12,9 +12,29 @@
       <h1>IanthoSim</h1>
       <p class="tagline">Simulasi persepsi visual ianthinopsia — bagaimana dunia terlihat dalam dominasi violet</p>
     </div>
-  </header>
+  </heade  <main>
+    <!-- Mode Switcher -->
+    <section class="mode-section">
+      <div class="mode-switcher">
+        <button type="button" class="mode-btn active" id="btnModeEncode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          </svg>
+          <span>ENCODE (Simulasi Ianthinopsia)</span>
+        </button>
+        <button type="button" class="mode-btn" id="btnModeDecode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          <span>DECODE (Restorasi Warna / Invers)</span>
+        </button>
+      </div>
+      <p class="mode-description" id="modeDescription">
+        <strong>Mode Encode:</strong> Mengubah gambar normal menjadi dominan violet (simulasi penglihatan ianthinopsia).
+      </p>
+    </section>
 
-  <main>
     <!-- Upload Zone -->
     <section class="upload-section" id="uploadSection">
       <div class="drop-zone" id="dropZone">
@@ -23,19 +43,19 @@
             <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
           </svg>
         </div>
-        <p class="drop-title">Drag &amp; drop gambar di sini</p>
+        <p class="drop-title" id="dropTitle">Drag &amp; drop gambar di sini</p>
         <p class="drop-sub">atau</p>
-        <label class="btn-upload" for="fileInput">Pilih File</label>
+        <label class="btn-upload" for="fileInput" id="lblUpload">Pilih File Gambar</label>
         <input type="file" id="fileInput" accept="image/*" hidden />
-        <p class="drop-note">PNG, JPG, WEBP — diproses sepenuhnya di browser</p>
+        <p class="drop-note">PNG, JPG, WEBP — diproses secara lokal &amp; aman di browser</p>
       </div>
     </section>
 
     <!-- Split View -->
     <section class="split-section hidden" id="splitSection">
       <div class="split-label">
-        <span class="label-left">Original</span>
-        <span class="label-right">IanthoSim</span>
+        <span class="label-left" id="splitLabelLeft">Original (Input)</span>
+        <span class="label-right" id="splitLabelRight">IanthoSim (Hasil)</span>
       </div>
       <div class="split-wrapper" id="splitWrapper">
         <canvas id="canvasOriginal"></canvas>
@@ -56,39 +76,39 @@
       <div class="controls-grid">
         <div class="control-group">
           <label for="sliderStrength">
-            Filter Strength
-            <span class="value-badge" id="valStrength">0.85</span>
+            <span id="lblStrengthTitle">Filter Strength</span>
+            <span class="value-badge" id="valStrength">0.75</span>
           </label>
-          <input type="range" id="sliderStrength" min="0" max="1" step="0.01" value="0.85" />
-          <p class="ctrl-hint">Seberapa kuat hue ditarik ke violet</p>
+          <input type="range" id="sliderStrength" min="0" max="1" step="0.01" value="0.75" />
+          <p class="ctrl-hint" id="hintStrength">Seberapa kuat hue ditarik ke violet</p>
         </div>
 
         <div class="control-group">
           <label for="sliderSaturation">
-            Saturation
-            <span class="value-badge" id="valSaturation">1.30x</span>
+            <span id="lblSaturationTitle">Saturation</span>
+            <span class="value-badge" id="valSaturation">1.00x</span>
           </label>
-          <input type="range" id="sliderSaturation" min="0.5" max="2.0" step="0.05" value="1.3" />
-          <p class="ctrl-hint">Intensitas warna pada hasil filter</p>
+          <input type="range" id="sliderSaturation" min="0.5" max="2.0" step="0.05" value="1.0" />
+          <p class="ctrl-hint" id="hintSaturation">Intensitas warna pada hasil</p>
         </div>
 
         <div class="control-group">
           <label for="sliderBrightness">
-            Brightness
+            <span id="lblBrightnessTitle">Brightness</span>
             <span class="value-badge" id="valBrightness">1.00x</span>
           </label>
           <input type="range" id="sliderBrightness" min="0.5" max="1.5" step="0.05" value="1.0" />
-          <p class="ctrl-hint">Kecerahan gambar hasil</p>
+          <p class="ctrl-hint" id="hintBrightness">Kecerahan gambar hasil</p>
         </div>
 
         <div class="control-group">
           <label for="sliderHue">
-            Target Hue
+            <span id="lblHueTitle">Target Hue</span>
             <span class="value-badge" id="valHue">270 deg</span>
           </label>
           <input type="range" id="sliderHue" min="240" max="310" step="1" value="270" />
           <div class="hue-strip"></div>
-          <p class="ctrl-hint">240 = biru-violet · 270 = violet murni · 310 = magenta</p>
+          <p class="ctrl-hint" id="hintHue">240 = biru-violet · 270 = violet murni · 310 = magenta</p>
         </div>
       </div>
 
@@ -98,13 +118,21 @@
             <circle cx="12" cy="12" r="3"/>
             <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
           </svg>
-          Proses Gambar
+          <span id="txtBtnProcess">Proses Simulasi</span>
         </button>
+
+        <button class="btn-secondary hidden" id="btnUseAsDecodeInput">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          <span>🔄 Gunakan Hasil Ini untuk Dekode (Invers)</span>
+        </button>
+
         <button class="btn-secondary hidden" id="btnDownload">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
           </svg>
-          Download PNG
+          <span>Download PNG</span>
         </button>
       </div>
 
@@ -118,15 +146,15 @@
     <section class="preview-section hidden" id="previewSection">
       <div class="preview-cards">
         <div class="preview-card">
-          <h3>Original</h3>
+          <h3 id="previewTitleLeft">Original (Input)</h3>
           <canvas id="previewOriginal"></canvas>
         </div>
         <div class="preview-card accent">
-          <h3>IanthoSim — Ianthinopsia</h3>
+          <h3 id="previewTitleRight">IanthoSim — Ianthinopsia</h3>
           <canvas id="previewFiltered"></canvas>
         </div>
       </div>
-    </section>
+    </section></section>
 
     <!-- Info Box -->
     <section class="info-section">

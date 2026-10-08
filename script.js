@@ -1,9 +1,10 @@
-﻿/**
+/**
  * IanthoSim — script.js
- * Simulasi persepsi visual ianthinopsia (chromatopsia violet)
+ * Simulasi persepsi visual ianthinopsia (chromatopsia violet) & Dekode Invers Restorasi Warna
  *
  * Pipeline per pixel:
- *   RGBA[] -> normalize -> RGB->HSV -> Hue Mapping -> HSV->RGB -> clamp -> RGBA[]
+ *   Mode ENCODE (Simulasi):  RGBA -> normalize -> RGB->HSV -> Hue Attraction -> HSV->RGB -> RGBA
+ *   Mode DECODE (Restorasi): RGBA -> normalize -> RGB->HSV -> Hue Expansion -> HSV->RGB -> RGBA
  *
  * Kompleksitas: O(N) dimana N = lebar x tinggi pixel
  */
@@ -13,43 +14,71 @@
 // ── State ────────────────────────────────────────────────────────────────────
 
 const state = {
-  originalImage:  null,   // HTMLImageElement
-  originalData:   null,   // ImageData dari gambar asli
-  filteredData:   null,   // ImageData hasil filter
-  splitX:         0.5,    // posisi divider (0.0 – 1.0)
-  dragging:       false,
-  processed:      false,
+  originalImage:            null,   // HTMLImageElement
+  originalData:             null,   // ImageData dari gambar input
+  filteredData:             null,   // ImageData hasil pemrosesan
+  offscreenFilteredCanvas:  null,   // Canvas tersembunyi untuk perbandingan split-view
+  splitX:                   0.5,    // posisi divider split view (0.0 – 1.0)
+  dragging:                 false,
+  processed:                false,
+  mode:                     'encode', // 'encode' (simulasi) | 'decode' (restorasi/invers)
 };
 
 // ── DOM References ────────────────────────────────────────────────────────────
 
-const dropZone        = document.getElementById('dropZone');
-const fileInput       = document.getElementById('fileInput');
-const splitSection    = document.getElementById('splitSection');
-const splitWrapper    = document.getElementById('splitWrapper');
-const splitDivider    = document.getElementById('splitDivider');
-const canvasOriginal  = document.getElementById('canvasOriginal');
-const canvasFiltered  = document.getElementById('canvasFiltered');
-const controlsSection = document.getElementById('controlsSection');
-const previewSection  = document.getElementById('previewSection');
-const previewOriginal = document.getElementById('previewOriginal');
-const previewFiltered = document.getElementById('previewFiltered');
-const btnProcess      = document.getElementById('btnProcess');
-const btnDownload     = document.getElementById('btnDownload');
-const progressWrap    = document.getElementById('progressWrap');
-const progressBar     = document.getElementById('progressBar');
-const progressLabel   = document.getElementById('progressLabel');
+const btnModeEncode         = document.getElementById('btnModeEncode');
+const btnModeDecode         = document.getElementById('btnModeDecode');
+const modeDescription       = document.getElementById('modeDescription');
 
-const sliderStrength  = document.getElementById('sliderStrength');
-const sliderSaturation= document.getElementById('sliderSaturation');
-const sliderBrightness= document.getElementById('sliderBrightness');
-const sliderHue       = document.getElementById('sliderHue');
-const valStrength     = document.getElementById('valStrength');
-const valSaturation   = document.getElementById('valSaturation');
-const valBrightness   = document.getElementById('valBrightness');
-const valHue          = document.getElementById('valHue');
+const dropZone              = document.getElementById('dropZone');
+const fileInput             = document.getElementById('fileInput');
+const dropTitle             = document.getElementById('dropTitle');
+const lblUpload             = document.getElementById('lblUpload');
 
-// ── Algoritma Inti ────────────────────────────────────────────────────────────
+const splitSection          = document.getElementById('splitSection');
+const splitWrapper          = document.getElementById('splitWrapper');
+const splitDivider          = document.getElementById('splitDivider');
+const splitLabelLeft        = document.getElementById('splitLabelLeft');
+const splitLabelRight       = document.getElementById('splitLabelRight');
+
+const canvasOriginal        = document.getElementById('canvasOriginal');
+const canvasFiltered        = document.getElementById('canvasFiltered');
+
+const controlsSection       = document.getElementById('controlsSection');
+const lblStrengthTitle      = document.getElementById('lblStrengthTitle');
+const lblSaturationTitle    = document.getElementById('lblSaturationTitle');
+const lblBrightnessTitle    = document.getElementById('lblBrightnessTitle');
+const lblHueTitle           = document.getElementById('lblHueTitle');
+const hintStrength          = document.getElementById('hintStrength');
+const hintSaturation        = document.getElementById('hintSaturation');
+const hintBrightness        = document.getElementById('hintBrightness');
+const hintHue               = document.getElementById('hintHue');
+
+const previewSection        = document.getElementById('previewSection');
+const previewOriginal       = document.getElementById('previewOriginal');
+const previewFiltered       = document.getElementById('previewFiltered');
+const previewTitleLeft      = document.getElementById('previewTitleLeft');
+const previewTitleRight     = document.getElementById('previewTitleRight');
+
+const btnProcess            = document.getElementById('btnProcess');
+const txtBtnProcess         = document.getElementById('txtBtnProcess');
+const btnUseAsDecodeInput   = document.getElementById('btnUseAsDecodeInput');
+const btnDownload           = document.getElementById('btnDownload');
+
+const progressWrap          = document.getElementById('progressWrap');
+const progressBar           = document.getElementById('progressBar');
+const progressLabel         = document.getElementById('progressLabel');
+
+const sliderStrength        = document.getElementById('sliderStrength');
+const sliderSaturation      = document.getElementById('sliderSaturation');
+const sliderBrightness      = document.getElementById('sliderBrightness');
+const sliderHue             = document.getElementById('sliderHue');
+const valStrength           = document.getElementById('valStrength');
+const valSaturation         = document.getElementById('valSaturation');
+const valBrightness         = document.getElementById('valBrightness');
+const valHue                = document.getElementById('valHue');
+
+// ── Algoritma Inti (Warna & Matematika Invers) ────────────────────────────────
 
 /**
  * RGB -> HSV
@@ -112,49 +141,52 @@ function angularDiff(from, to) {
 }
 
 /**
- * Hue Mapping — Circular Attraction ke target hue
- *
- * Rumus:
- *   diff    = angularDiff(H, H_target)     // arah & jarak ke target
- *   falloff = (1 - |diff| / 180)^2        // quadratic falloff
- *   H_new   = H + strength * diff * falloff
- *
- * Efek:
- *   - Warna dekat violet: bergeser sedikit (sudah mendekati target)
- *   - Warna jauh (merah/kuning): ditarik kuat tapi falloff melunakkan
- *   - Warna SANGAT jauh (180 derajat berlawanan): falloff mendekati 0,
- *     sehingga masih punya identitas — tidak "terhapus" total
- *   - V (brightness) tidak disentuh -> detail & tekstur terjaga
+ * Hue Mapping Forward (Mode Encode / Simulasi)
+ * Menarik Hue dari warna asli menuju target violet.
+ * Blend factor: strength * 0.75 (memberikan kompresi yang dapat di-invers secara presisi)
  */
-function mapHue(h, targetHue, strength) {
-  const diff    = angularDiff(h, targetHue);
-  const absDiff = Math.abs(diff);
-  const falloff = Math.pow(1 - absDiff / 180, 2);
-  let newH = h + strength * diff * falloff;
-  // normalize ke [0, 360)
-  newH = ((newH % 360) + 360) % 360;
-  return newH;
+function mapHueForward(h, targetHue, strength) {
+  const diff = angularDiff(h, targetHue);
+  const blend = strength * 0.75;
+  let newH = h + blend * diff;
+  return ((newH % 360) + 360) % 360;
 }
 
 /**
- * Proses satu ImageData: terapkan filter ianthinopsia
- * Gunakan chunked loop + requestAnimationFrame untuk update progress
- * agar UI tidak freeze pada gambar besar.
+ * Hue Mapping Inverse (Mode Decode / Restorasi)
+ * Menguraikan (Merekonstruksi) Hue terkompresi dari violet kembali ke warna asal.
+ *
+ * Persamaan Invers Eksak:
+ *   diffToTarget = angularDiff(targetHue, h_input)  // h_input - targetHue
+ *   originalDiff = diffToTarget / (1 - blend)
+ *   h_restored   = targetHue + originalDiff
  */
-function applyFilter(imageData, params, onProgress, onDone) {
+function mapHueInverse(h, targetHue, strength) {
+  const blend = Math.min(0.90, strength * 0.75);
+  const factor = 1 - blend;
+  if (factor <= 0.001) return h;
+
+  const diffToTarget = angularDiff(targetHue, h); // h - targetHue
+  let restoredH = targetHue + (diffToTarget / factor);
+  return ((restoredH % 360) + 360) % 360;
+}
+
+/**
+ * Terapkan filter (Encode atau Decode) pada ImageData
+ */
+function applyFilter(imageData, params, mode, onProgress, onDone) {
   const { strength, satMul, briMul, targetHue } = params;
   const data   = imageData.data;
-  const total  = data.length / 4;        // jumlah pixel
-  const CHUNK  = 20000;                  // pixel per chunk
+  const total  = data.length / 4;
+  const CHUNK  = 25000;
   let   i      = 0;
 
-  // copy data supaya original tidak dimodifikasi
-  const out    = new ImageData(
+  const out  = new ImageData(
     new Uint8ClampedArray(data),
     imageData.width,
     imageData.height
   );
-  const outD   = out.data;
+  const outD = out.data;
 
   function processChunk() {
     const end = Math.min(i + CHUNK, total);
@@ -163,18 +195,20 @@ function applyFilter(imageData, params, onProgress, onDone) {
       const r   = outD[idx]     / 255;
       const g   = outD[idx + 1] / 255;
       const b   = outD[idx + 2] / 255;
-      // alpha dibiarkan
 
       let { h, s, v } = rgbToHsv(r, g, b);
 
-      // 1. Hue attraction ke violet
-      h = mapHue(h, targetHue, strength);
-
-      // 2. Saturation scale (clamp [0,1])
-      s = Math.min(1, Math.max(0, s * satMul));
-
-      // 3. Brightness scale (clamp [0,1])
-      v = Math.min(1, Math.max(0, v * briMul));
+      if (mode === 'encode') {
+        // ENCODE: Kompresi Hue ke Violet
+        h = mapHueForward(h, targetHue, strength);
+        s = Math.min(1, Math.max(0, s * satMul));
+        v = Math.min(1, Math.max(0, v * briMul));
+      } else {
+        // DECODE: Rekonstruksi Hue Asli
+        h = mapHueInverse(h, targetHue, strength);
+        s = Math.min(1, Math.max(0, s / (satMul || 1)));
+        v = Math.min(1, Math.max(0, v / (briMul || 1)));
+      }
 
       const rgb = hsvToRgb(h, s, v);
 
@@ -198,18 +232,12 @@ function applyFilter(imageData, params, onProgress, onDone) {
 
 // ── Canvas Utilities ──────────────────────────────────────────────────────────
 
-/**
- * Gambar ImageData ke canvas (resize canvas ke dimensi data)
- */
 function renderToCanvas(canvas, imageData) {
   canvas.width  = imageData.width;
   canvas.height = imageData.height;
   canvas.getContext('2d').putImageData(imageData, 0, 0);
 }
 
-/**
- * Gambar Image ke canvas (fit ke max width)
- */
 function renderImageToCanvas(canvas, img, maxW) {
   let w = img.naturalWidth;
   let h = img.naturalHeight;
@@ -219,42 +247,49 @@ function renderImageToCanvas(canvas, img, maxW) {
   }
   canvas.width  = w;
   canvas.height = h;
-  canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-  return canvas.getContext('2d').getImageData(0, 0, w, h);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+  return ctx.getImageData(0, 0, w, h);
 }
 
 /**
- * Update split view: kanvas original penuh, kanvas filtered di-clip
+ * Perbaikan Split View: Menggunakan Offscreen Canvas agar ctx.clip() bekerja nyata
  */
 function updateSplitView() {
   if (!state.filteredData || !state.originalData) return;
 
-  const wrapper = splitWrapper;
   const w = canvasOriginal.width;
   const h = canvasOriginal.height;
   const splitPx = Math.round(state.splitX * w);
 
-  // Render original (full)
-  // sudah ter-render saat load gambar
+  // 1. Render data original ke kanvas latar belakang (canvasOriginal)
+  renderToCanvas(canvasOriginal, state.originalData);
 
-  // Render filtered dengan clip kiri = splitPx
+  // 2. Siapkan canvas tersembunyi (offscreen) untuk menampung filteredData
+  if (!state.offscreenFilteredCanvas) {
+    state.offscreenFilteredCanvas = document.createElement('canvas');
+  }
+  state.offscreenFilteredCanvas.width = w;
+  state.offscreenFilteredCanvas.height = h;
+  const offCtx = state.offscreenFilteredCanvas.getContext('2d');
+  offCtx.putImageData(state.filteredData, 0, 0);
+
+  // 3. Render canvasFiltered dengan clip area kanan saja dari divider (splitPx)
   const ctxF = canvasFiltered.getContext('2d');
   ctxF.clearRect(0, 0, w, h);
   ctxF.save();
   ctxF.beginPath();
-  ctxF.rect(0, 0, splitPx, h);
+  ctxF.rect(splitPx, 0, w - splitPx, h);
   ctxF.clip();
-  ctxF.putImageData(state.filteredData, 0, 0);
+  ctxF.drawImage(state.offscreenFilteredCanvas, 0, 0);
   ctxF.restore();
 
-  // Posisikan divider
-  // canvas memiliki CSS width=100%, kita perlu scale
+  // 4. Posisikan divider garis perbandingan
   const cssW    = canvasOriginal.getBoundingClientRect().width;
   const scaleX  = cssW / w;
   const divPxCSS = splitPx * scaleX;
   splitDivider.style.left = divPxCSS + 'px';
 
-  // set wrapper height ke tinggi canvas (CSS)
   const cssH = h * scaleX;
   splitWrapper.style.height = cssH + 'px';
 }
@@ -268,25 +303,21 @@ function loadImage(file) {
     URL.revokeObjectURL(url);
     state.originalImage = img;
 
-    // Render ke split canvases (max 1400px wide)
     const MAX_W = 1400;
     state.originalData = renderImageToCanvas(canvasOriginal, img, MAX_W);
 
-    // canvasFiltered sama dimensi, tapi kosong sampai diproses
     canvasFiltered.width  = canvasOriginal.width;
     canvasFiltered.height = canvasOriginal.height;
 
-    // Render ke small preview
     renderImageToCanvas(previewOriginal, img, 600);
 
-    // Tampilkan UI
     splitSection.classList.remove('hidden');
     controlsSection.classList.remove('hidden');
 
     state.processed = false;
     btnDownload.classList.add('hidden');
+    btnUseAsDecodeInput.classList.add('hidden');
 
-    // auto-process
     processImage();
   };
   img.src = url;
@@ -316,6 +347,7 @@ function processImage() {
   applyFilter(
     state.originalData,
     params,
+    state.mode,
     (pct) => {
       progressBar.style.width = pct + '%';
       progressLabel.textContent = 'Memproses ' + pct + '%';
@@ -324,12 +356,10 @@ function processImage() {
       state.filteredData = resultData;
       state.processed    = true;
 
-      // Update split view
       canvasFiltered.width  = resultData.width;
       canvasFiltered.height = resultData.height;
       updateSplitView();
 
-      // Update small preview
       renderToCanvas(previewFiltered, resultData);
       previewSection.classList.remove('hidden');
 
@@ -342,8 +372,84 @@ function processImage() {
 
       btnProcess.disabled = false;
       btnDownload.classList.remove('hidden');
+
+      if (state.mode === 'encode') {
+        btnUseAsDecodeInput.classList.remove('hidden');
+      } else {
+        btnUseAsDecodeInput.classList.add('hidden');
+      }
     }
   );
+}
+
+// ── Mode Switcher & Dynamic UI ────────────────────────────────────────────────
+
+function setMode(newMode) {
+  if (state.mode === newMode) return;
+  state.mode = newMode;
+
+  if (newMode === 'encode') {
+    btnModeEncode.classList.add('active');
+    btnModeDecode.classList.remove('active');
+
+    modeDescription.innerHTML = '<strong>Mode Encode (Simulasi):</strong> Mengubah gambar normal menjadi dominan violet (simulasi penglihatan ianthinopsia).';
+    dropTitle.textContent = 'Drag & drop gambar normal di sini';
+    lblUpload.textContent = 'Pilih Gambar Normal';
+
+    splitLabelLeft.textContent  = 'Original (Input)';
+    splitLabelRight.textContent = 'Simulasi Ianthinopsia (Hasil)';
+
+    previewTitleLeft.textContent  = 'Original (Input)';
+    previewTitleRight.textContent = 'IanthoSim — Ianthinopsia';
+
+    lblStrengthTitle.textContent  = 'Filter Strength';
+    hintStrength.textContent      = 'Seberapa kuat hue ditarik ke violet';
+
+    txtBtnProcess.textContent     = 'Proses Simulasi';
+  } else {
+    btnModeDecode.classList.add('active');
+    btnModeEncode.classList.remove('active');
+
+    modeDescription.innerHTML = '<strong>Mode Decode (Restorasi):</strong> Menguraikan warna dari gambar violet kembali ke warna spektrum aslinya.';
+    dropTitle.textContent = 'Drag & drop gambar hasil simulasi (violet) di sini';
+    lblUpload.textContent = 'Pilih Gambar Violet (Hasil Simulasi)';
+
+    splitLabelLeft.textContent  = 'Input Violet (Hasil Simulasi)';
+    splitLabelRight.textContent = 'Hasil Dekode (Restorasi Warna Asli)';
+
+    previewTitleLeft.textContent  = 'Input Violet (Gambar Terolah)';
+    previewTitleRight.textContent = 'Hasil Restorasi Warna (Dekode)';
+
+    lblStrengthTitle.textContent  = 'Un-pull Strength';
+    hintStrength.textContent      = 'Kekuatan menguraikan / mengembalikan ekspansi hue';
+
+    txtBtnProcess.textContent     = 'Dekode / Pulihkan Warna';
+  }
+
+  if (state.originalData) {
+    processImage();
+  }
+}
+
+// Transfer hasil Encode sebagai input Decode
+function useResultAsDecodeInput() {
+  if (!state.filteredData) return;
+
+  // Salin filteredData ke originalData
+  const copy = new ImageData(
+    new Uint8ClampedArray(state.filteredData.data),
+    state.filteredData.width,
+    state.filteredData.height
+  );
+
+  state.originalData = copy;
+
+  // Render ke preview original
+  renderToCanvas(previewOriginal, copy);
+  renderToCanvas(canvasOriginal, copy);
+
+  // Switch ke Decode mode
+  setMode('decode');
 }
 
 // ── Download ──────────────────────────────────────────────────────────────────
@@ -351,12 +457,12 @@ function processImage() {
 function downloadResult() {
   if (!state.filteredData) return;
 
-  // render ke offscreen canvas full resolution
   const offscreen = document.createElement('canvas');
   renderToCanvas(offscreen, state.filteredData);
 
+  const prefix = state.mode === 'encode' ? 'ianthoSim-simulated' : 'ianthoSim-restored';
   const link = document.createElement('a');
-  link.download = 'ianthoSim-result.png';
+  link.download = `${prefix}.png`;
   link.href = offscreen.toDataURL('image/png');
   link.click();
 }
@@ -451,11 +557,15 @@ dropZone.addEventListener('drop', (e) => {
   }
 });
 
-// ── Button Events ─────────────────────────────────────────────────────────────
+// ── Button & Mode Events ──────────────────────────────────────────────────────
+
+btnModeEncode.addEventListener('click', () => setMode('encode'));
+btnModeDecode.addEventListener('click', () => setMode('decode'));
+btnUseAsDecodeInput.addEventListener('click', useResultAsDecodeInput);
 
 btnProcess.addEventListener('click', processImage);
 btnDownload.addEventListener('click', downloadResult);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-// Tidak ada inisialisasi tambahan yang dibutuhkan.
-// Semua dimulai saat user upload gambar.
+// Init mode tampilan awal
+setMode('encode');

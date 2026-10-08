@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    IanthoSim — style.css
    Dark theme dengan aksen violet/purple
    ============================================================ */
@@ -106,6 +106,69 @@ main {
 
 .hidden {
   display: none !important;
+}
+
+/* ── Mode Switcher ───────────────────────────────────────── */
+.mode-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.mode-switcher {
+  display: inline-flex;
+  background: var(--bg-card);
+  padding: 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  gap: 6px;
+  box-shadow: var(--shadow-card);
+}
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.mode-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.mode-btn.active {
+  background: linear-gradient(135deg, var(--violet-700), var(--violet-500));
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
+}
+
+.mode-description {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  text-align: center;
+  background: var(--bg-surface);
+  padding: 8px 18px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+
+.mode-description strong {
+  color: var(--violet-300);
 }
 
 /* ── Upload / Drop Zone ──────────────────────────────────── */
